@@ -1,7 +1,4 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy ASP.Net Core app to Azure Web App - techchallenge-service
+name: Build, Test and Deploy ASP.Net Core app to Azure Web Service - techchallenge-service
 
 on:
   push:
@@ -17,22 +14,24 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up .NET Core
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
-          include-prerelease: true
 
       - name: Build with dotnet
         run: dotnet build --configuration Release
 
+      - name: Run unit tests
+        run: dotnet test ${{ github.workspace }}/TechChallenge.ContatoPrimary.Tests/TechChallenge.ContatoPrimary.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage"
+
       - name: dotnet publish
-        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
+        run: dotnet publish ${{ github.workspace }}/TechChallenge.ContatoPrimary.WorkerService/TechChallenge.ContatoPrimary.WorkerService.csproj -c Release -o ${{ github.workspace }}/myapp
 
       - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          path: ${{ github.workspace }}/myapp
 
   deploy:
     runs-on: windows-latest
@@ -40,18 +39,25 @@ jobs:
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    permissions:
+      id-token: write
 
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: .net-app
+          
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_389E5C7DCA5443BD964FECDE81AC362F }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_34754EE7A915421A958EFBD366A17A44 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1FA4D46F4290466DB92C9997FC46AE0D }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
-        uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'techchallenge-service'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_8763226E44E44ABFA55D44762FF43516 }}
-          package: .
